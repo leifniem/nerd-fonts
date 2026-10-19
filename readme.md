@@ -14,6 +14,14 @@
 >   so filled caps and `╭─╮` outlines have the same corners. Fonts without box drawing
 >   use the proportions of the Nerd Fonts box drawing glyphs.
 >
+> ![Terminal preview: half circle caps vs new rounded rectangle caps](images/rounded-caps/demo.png)
+>
+> Overlay: the font's own box drawing corners, moved so their line sits on the cap edge, follow the new corners exactly.
+>
+> ![Overlay of the new caps with the box drawing corners](images/rounded-caps/overlay.png)
+>
+> Both images: JetBrains Mono, patched with this `font-patcher`.
+>
 > ```sh
 > fontforge --script font-patcher --complete YourFont.ttf
 > printf '\e[34m\ue0d9\e[44;30m Foo \e[0;34m\ue0da\e[44;30m Bar \e[0;34m\ue0d8\e[0m\n'
