@@ -16,4 +16,7 @@ Version: 1.000 (from about 2016)
 * Add 'landing platform' to glyphs at 0xE0C0 and 0xE0C2
 * Change version of font to 1.200
 
+Not in this font: the rounded rectangle caps 0xE0D8, 0xE0D9, and 0xE0DA are generated
+by `font-patcher` from the patched 0xE0B4/0xE0B6 and the box drawing corner 0x256E.
+
 Version: 1.200 (our version)

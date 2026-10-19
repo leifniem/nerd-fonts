@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nerd Fonts Version: 3.5.1
-# Script Version: 1.1.1
+# Script Version: 1.1.2
 
 # Run this script in your local bash:
 # curl https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/bin/scripts/test-fonts.sh | bash
@@ -146,7 +146,7 @@ function test-fonts() {
   echo; echo
 
   echo "Nerd Fonts - Powerline Extra"
-  print-unicode-ranges e0a3 e0a3 e0b4 e0c8 e0cc e0d2 e0d4 e0d4 e0d6 e0d7
+  print-unicode-ranges e0a3 e0a3 e0b4 e0c8 e0cc e0d2 e0d4 e0d4 e0d6 e0da
   echo; echo
 
   echo "Nerd Fonts - Symbols original"

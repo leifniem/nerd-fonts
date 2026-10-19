@@ -6,7 +6,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 # Change the script version when you edit this script:
-script_version = "4.27.3"
+script_version = "4.28.0"
 
 version = "3.5.1"
 projectName = "Nerd Fonts"
@@ -1045,6 +1045,13 @@ class font_patcher:
             # Don't scale because we generate font in the suitable size directly
             'default': {'align': '', 'valign': '', 'stretch': '', 'params': {'careful': False}}
         }
+        SYM_ATTR_ROUNDEDCAPS = {
+            # Don't scale because we generate them in the final size directly,
+            # but align and overlap like the half circles they are derived from
+            'default': {'align': 'c', 'valign': '', 'stretch': '', 'params': {'overlap': 0.12}}, # E0DA overlaps both sides
+            0xe0d8: {'align': 'l', 'valign': '', 'stretch': '', 'params': {'overlap': 0.06}}, # like E0B4
+            0xe0d9: {'align': 'r', 'valign': '', 'stretch': '', 'params': {'overlap': 0.06}}, # like E0B6
+        }
         SYM_ATTR_HEAVYBRACKETS = {
             'default': {'align': 'c', 'valign': 'c', 'stretch': '^pa1!', 'params': {'ypadding': 0.3, 'careful': True}}
         }
@@ -1252,6 +1259,7 @@ class font_patcher:
             {'Enabled': self.args.powerlineextra,       'Name': "Powerline Extra",      'Filename': "powerline-extra/PowerlineExtraSymbols.otf",      'Exact': True,  'SymStart': 0xE0B4, 'SymEnd': 0xE0C8, 'SrcStart': None,   'ScaleRules': None,             'Attributes': SYM_ATTR_POWERLINE},
             {'Enabled': self.args.powerlineextra,       'Name': "Powerline Extra",      'Filename': "powerline-extra/PowerlineExtraSymbols.otf",      'Exact': True,  'SymStart': 0xE0CA, 'SymEnd': 0xE0CA, 'SrcStart': None,   'ScaleRules': None,             'Attributes': SYM_ATTR_POWERLINE},
             {'Enabled': self.args.powerlineextra,       'Name': "Powerline Extra",      'Filename': "powerline-extra/PowerlineExtraSymbols.otf",      'Exact': True,  'SymStart': 0xE0CC, 'SymEnd': 0xE0D7, 'SrcStart': None,   'ScaleRules': None,             'Attributes': SYM_ATTR_POWERLINE},
+            {'Enabled': self.args.powerlineextra,       'Name': "Powerline Extra",      'Font'    : self.get_rounded_caps_font,                       'Exact': True,  'SymStart': 0xE0D8, 'SymEnd': 0xE0DA, 'SrcStart': None,   'ScaleRules': None,             'Attributes': SYM_ATTR_ROUNDEDCAPS},
             {'Enabled': self.args.powerlineextra,       'Name': "Powerline Extra",      'Filename': "powerline-extra/PowerlineExtraSymbols.otf",      'Exact': True,  'SymStart': 0x2630, 'SymEnd': 0x2630, 'SrcStart': None,   'ScaleRules': None,             'Attributes': SYM_ATTR_TRIGRAPH},
             {'Enabled': self.args.pomicons,             'Name': "Pomicons",             'Filename': "pomicons/Pomicons.otf",                          'Exact': True,  'SymStart': 0xE000, 'SymEnd': 0xE00A, 'SrcStart': None,   'ScaleRules': None,             'Attributes': SYM_ATTR_DEFAULT,   'ish': "i_pom.sh"},
             {'Enabled': self.args.fontawesome,          'Name': "Font Awesome",         'Filename': "font-awesome/FontAwesome.otf",                   'Exact': True,  'SymStart': 0xED00, 'SymEnd': 0xF2FF, 'SrcStart': None,   'ScaleRules': FONTA_SCALE_LIST, 'Attributes': SYM_ATTR_FONTA,     'ish': "i_fa.sh"},
@@ -1812,7 +1820,7 @@ class font_patcher:
                     x_align_distance -= overlap_width
                 elif sym_attr['align'] == 'c':
                     # center aligned keeps being center aligned even with overlap
-                    if overlap_width < 0 and simple_nonmono: # Keep positive bearing due to negative overlap (propo)
+                    if simple_nonmono: # Keep positive bearing due to negative overlap, or negative bearing due to positive overlap (propo)
                         x_align_distance -= overlap_width / 2
                 elif sym_attr['align'] == 'r' and not simple_nonmono:
                     # Check and correct overlap; it can go wrong if we have a xy-ratio limit
@@ -2030,6 +2038,50 @@ class font_patcher:
         ymin = self.font_dim["ymin"]
         return get_braille_font(self.sourceFont.em, width, ymax, ymin, self.args.braille, 0.6)
 
+    def get_rounded_caps_font(self):
+        """ Generate the rounded rectangle caps E0D8-E0DA
+
+        They have the same bounding box as the (already patched in) half circle caps E0B4/E0B6.
+        Their corners have the radii of the rounded box drawing corner U+256E (also already
+        patched in or original), so filled caps and box drawing outlines can be used together.
+        """
+        font = fontforge.font()
+        font.em = self.sourceFont.em
+        font.encoding = 'UnicodeFull'
+        if 0xE0B4 not in self.sourceFont or 0xE0B6 not in self.sourceFont:
+            logger.warning("No E0B4/E0B6 glyphs, can not generate rounded caps E0D8-E0DA")
+            return font
+        (rx0, y0, rx1, y1) = self.sourceFont[0xE0B4].boundingBox()
+        (lx0, ly0, lx1, ly1) = self.sourceFont[0xE0B6].boundingBox()
+        mid = self.sourceFont[0xE0B4].width / 2
+        (rx, ry) = self.get_box_corner_radii()
+        rx = min(rx, mid - rx0, lx1 - mid)
+        ry = min(ry, (y1 - y0) / 2)
+        for code, halves in ((0xE0D8, [(rx0, rx1, y0, y1)]), (0xE0D9, [(lx1, lx0, ly0, ly1)]), (0xE0DA, [(rx0, mid, y0, y1), (lx1, mid, y0, y1)])):
+            glyph = font.createChar(code)
+            pen = glyph.glyphPen()
+            for (flat, outer, ymin, ymax) in halves:
+                draw_rounded_cap(pen, flat, outer, ymin, ymax, rx, ry)
+            pen = None
+            glyph.correctDirection() # Left and right halves are drawn in opposite directions
+            glyph.width = self.sourceFont[0xE0B4].width
+        return font
+
+    def get_box_corner_radii(self):
+        """ Get (x, y) radii of the rounded box drawing corner U+256E in the target cell """
+        if 0x256E in self.sourceFont:
+            radii = measure_box_corner(self.sourceFont[0x256E], self.font_dim['xmin'], self.font_dim['width'])
+            if radii:
+                return radii
+            logger.warning("Can not measure box drawing corner U+256E, using the Nerd Fonts one")
+        # Font has no (usable) box drawing, take the proportions of our own (from extraglyphs)
+        box_font = fontforge.open(os.path.join(self.args.glyphdir, "extraglyphs.sfd"))
+        box_font.encoding = 'UnicodeFull'
+        (xmin, ymin, xmax, ymax) = box_font[0x2588].boundingBox() # full block == cell
+        (rx, ry) = measure_box_corner(box_font[0x256E], xmin, xmax - xmin)
+        box_font.close()
+        return (rx * self.font_dim['width'] / (xmax - xmin), ry * self.font_dim['height'] / (ymax - ymin))
+
 def half_gap(gap, top):
     """ Divides integer value into two new integers """
     # Line gap add extra space on the bottom of the line which
@@ -2076,6 +2128,39 @@ def sanitize_filename(filename, allow_dirs = False):
     if restore_colon:
         new_filename = new_filename[ :1] + ':' + new_filename[2: ]
     return new_filename
+
+def measure_box_corner(glyph, xmin, width):
+    """ Returns (x, y) radii of a box drawing corner glyph like U+256E, measured on the stroke centerline """
+    # The corner is a horizontal stroke from the left cell edge, an arc, and a vertical stroke
+    # down through the cell center. The arc starts where the straight segments end.
+    lines = []
+    for contour in glyph.foreground:
+        points = list(contour)
+        for a, b in zip(points, points[1:] + points[:1]):
+            if a.on_curve and b.on_curve:
+                lines.append(((a.x, a.y), (b.x, b.y)))
+    vert = [ l for l in lines if abs(l[0][0] - l[1][0]) < 1 and xmin + width / 4 < l[0][0] < xmin + width * 3 / 4 ]
+    horz = [ l for l in lines if abs(l[0][1] - l[1][1]) < 1 and min(l[0][0], l[1][0]) < xmin + width / 8 ]
+    if len(vert) < 2 or len(horz) < 2:
+        return None
+    center_x = (min(l[0][0] for l in vert) + max(l[0][0] for l in vert)) / 2
+    center_y = (min(l[0][1] for l in horz) + max(l[0][1] for l in horz)) / 2
+    arc_x = max(p[0] for l in horz for p in l) # right end of horizontal stroke
+    arc_y = max(p[1] for l in vert for p in l) # top end of vertical stroke
+    return (center_x - arc_x, center_y - arc_y)
+
+def draw_rounded_cap(pen, flat, outer, ymin, ymax, rx, ry):
+    """ Draw a filled block from x = flat to x = outer, with elliptic corners (rx, ry) on the outer side """
+    k = 4 / 3 * (2 ** 0.5 - 1) # bezier handle length for quarter ellipse
+    s = 1 if outer > flat else -1
+    c = outer - s * rx # where the corners start
+    pen.moveTo((flat, ymax))
+    pen.lineTo((flat, ymin))
+    pen.lineTo((c, ymin))
+    pen.curveTo((c + s * rx * k, ymin), (outer, ymin + ry - ry * k), (outer, ymin + ry))
+    pen.lineTo((outer, ymax - ry))
+    pen.curveTo((outer, ymax - ry + ry * k), (c + s * rx * k, ymax), (c, ymax))
+    pen.closePath()
 
 def get_multiglyph_boundingBox(glyphs, destGlyph = None):
     """ Returns dict of the dimensions of multiple glyphs combined(, as if they are copied into destGlyph) """
