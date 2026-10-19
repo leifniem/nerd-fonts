@@ -1,3 +1,24 @@
+> [!NOTE]
+> **This fork adds rounded rectangle Powerline caps** (prototype for [#1484](https://github.com/ryanoasis/nerd-fonts/issues/1484)).
+> Everything else is upstream Nerd Fonts. The change is on branch `rounded-rect-caps`.
+>
+> | Codepoint | Name | Sibling of |
+> |-----------|------|------------|
+> | `U+E0D8` | `ple-right_rounded_rectangle` | `U+E0B4` |
+> | `U+E0D9` | `ple-left_rounded_rectangle` | `U+E0B6` |
+> | `U+E0DA` | `ple-rounded_rectangle_separator` (right + left cap in one cell) | both |
+>
+> `font-patcher` generates them while patching (with `--powerlineextra` or `--complete`):
+> - Same bounding box and overlap as the patched `E0B4`/`E0B6`, so they replace the half circles 1:1.
+> - Corner radii are taken from the target font's own box drawing corner `╮` (U+256E),
+>   so filled caps and `╭─╮` outlines have the same corners. Fonts without box drawing
+>   use the proportions of the Nerd Fonts box drawing glyphs.
+>
+> ```sh
+> fontforge --script font-patcher --complete YourFont.ttf
+> printf '\e[34m\ue0d9\e[44;30m Foo \e[0;34m\ue0da\e[44;30m Bar \e[0;34m\ue0d8\e[0m\n'
+> ```
+
 <h1 align="center">
   <img src="images/nerd-fonts-logo.svg" alt="Nerd Fonts Logo" />
 </h1>
